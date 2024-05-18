@@ -1,0 +1,211 @@
+import pygame
+import random
+
+# Initialize Pygame
+pygame.init()
+
+# Screen dimensions
+WIDTH = 400
+HEIGHT = 600
+
+# Colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+
+# Player properties
+PLAYER_WIDTH = 50
+PLAYER_HEIGHT = 50
+player_x = WIDTH // 2
+player_y = HEIGHT - PLAYER_HEIGHT - 10
+player_speed = 5
+
+# Obstacle properties
+OBSTACLE_WIDTH = 50
+OBSTACLE_HEIGHT = 50
+obstacle_list = []
+
+# Barrier properties
+BARRIER_WIDTH = 50
+BARRIER_HEIGHT = 50
+barrier_list = []
+
+# Power-up properties
+POWER_UP_WIDTH = 30
+POWER_UP_HEIGHT = 30
+power_up_list = []
+
+# Game setup
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Turbo Tunnel Game")
+clock = pygame.time.Clock()
+
+# Load background music
+pygame.mixer.music.load('background_music.mp3')
+pygame.mixer.music.play(-1)  # Play the music indefinitely
+
+# Timer
+game_timer = 0
+font = pygame.font.Font(None, 36)
+
+# Function to create obstacles
+def create_obstacle():
+    x = random.randint(0, WIDTH - OBSTACLE_WIDTH)
+    y = -OBSTACLE_HEIGHT
+    speed = random.randint(5, 15)
+    obstacle_list.append([x, y, speed])
+
+# Function to create barriers
+def create_barrier():
+    x = random.randint(0, WIDTH - BARRIER_WIDTH)
+    y = -BARRIER_HEIGHT
+    barrier_list.append([x, y])
+
+# Function to create power-ups
+def create_power_up():
+    x = random.randint(0, WIDTH - POWER_UP_WIDTH)
+    y = -POWER_UP_HEIGHT
+    power_up_list.append([x, y])
+
+# Function to move obstacles
+def move_obstacles():
+    for obs in obstacle_list:
+        obs[1] += obs[2]
+    obstacle_list[:] = [obs for obs in obstacle_list if obs[1] < HEIGHT]
+
+# Function to move barriers
+def move_barriers():
+    for barrier in barrier_list:
+        barrier[1] += obstacle_speed
+    barrier_list[:] = [barrier for barrier in barrier_list if barrier[1] < HEIGHT]
+
+# Function to move power-ups
+def move_power_ups():
+    for power_up in power_up_list:
+        power_up[1] += obstacle_speed
+    power_up_list[:] = [power_up for power_up in power_up_list if power_up[1] < HEIGHT]
+
+# Function to detect collision
+def detect_collision(rect1, rect_list):
+    for rect in rect_list:
+        if rect1.colliderect(rect):
+            return rect
+    return None
+
+# Main game loop
+running = True
+obstacle_timer = 0
+barrier_timer = 0
+power_up_timer = 0
+obstacle_speed = 5
+player_slow_timer = 0
+
+while running:
+    screen.fill(WHITE)
+    
+    # Increment game timer
+    game_timer += 1
+    timer_text = font.render(f"Time: {game_timer // 30}s", True, BLACK)
+    screen.blit(timer_text, (10, 10))
+    
+    # Create obstacles, barriers, and power-ups at intervals
+    obstacle_timer += 1
+    barrier_timer += 1
+    power_up_timer += 1
+    
+    if obstacle_timer % 30 == 0:
+        create_obstacle()
+        
+    if barrier_timer % 180 == 0:
+        create_barrier()
+    
+    if power_up_timer % 300 == 0:
+        create_power_up()
+    
+    # Get player input
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT] and player_x > 0:
+        player_x -= player_speed
+    if keys[pygame.K_RIGHT] and player_x < WIDTH - PLAYER_WIDTH:
+        player_x += player_speed
+    if keys[pygame.K_UP] and player_y > 0:
+        player_y -= player_speed
+    if keys[pygame.K_DOWN] and player_y < HEIGHT - PLAYER_HEIGHT:
+        player_y += player_speed
+    
+    # Draw player
+    player_rect = pygame.Rect(player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT)
+    pygame.draw.rect(screen, BLACK, player_rect)
+    
+    # Move and draw obstacles
+    move_obstacles()
+    obstacle_rects = [pygame.Rect(obs[0], obs[1], OBSTACLE_WIDTH, OBSTACLE_HEIGHT) for obs in obstacle_list]
+    for rect in obstacle_rects:
+        pygame.draw.rect(screen, RED, rect)
+    
+    # Move and draw barriers
+    move_barriers()
+    barrier_rects = [pygame.Rect(barrier[0], barrier[1], BARRIER_WIDTH, BARRIER_HEIGHT) for barrier in barrier_list]
+    for rect in barrier_rects:
+        pygame.draw.rect(screen, BLUE, rect)
+    
+    # Move and draw power-ups
+    move_power_ups()
+    power_up_rects = [pygame.Rect(power_up[0], power_up[1], POWER_UP_WIDTH, POWER_UP_HEIGHT) for power_up in power_up_list]
+    for rect in power_up_rects:
+        pygame.draw.rect(screen, GREEN, rect)
+    
+    # Detect collisions with obstacles
+    obstacle_hit = detect_collision(player_rect, obstacle_rects)
+    if obstacle_hit:
+        print("Collided with RED obstacle. Game Over.")
+        running = False
+    
+    # Detect collisions with barriers
+    barrier_hit = detect_collision(player_rect, barrier_rects)
+    if barrier_hit:
+        print("Collided with BLUE barrier.")
+        # Remove the hit barrier from barrier_list
+        for barrier in barrier_list:
+            if pygame.Rect(barrier[0], barrier[1], BARRIER_WIDTH, BARRIER_HEIGHT) == barrier_hit:
+                barrier_list.remove(barrier)
+                break
+        player_slow_timer = 30
+    
+    # Detect collisions with power-ups
+    power_up_hit = detect_collision(player_rect, power_up_rects)
+    if power_up_hit:
+        print("Collided with GREEN power-up.")
+        speed_increase = player_speed * random.uniform(0.05, 0.25)
+        player_speed += speed_increase
+        # Remove the hit power-up from power_up_list
+        for power_up in power_up_list:
+            if pygame.Rect(power_up[0], power_up[1], POWER_UP_WIDTH, POWER_UP_HEIGHT) == power_up_hit:
+                power_up_list.remove(power_up)
+                break
+    
+    # Slow down player if hit a barrier
+    if player_slow_timer > 0:
+        player_speed = 2
+        player_slow_timer -= 1
+    else:
+        player_speed = 5
+    
+    # Increase game speed over time
+    if game_timer % 600 == 0:
+        obstacle_speed += 1
+    
+    # Update screen
+    pygame.display.flip()
+    clock.tick(30)
+    
+    # Event handling
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            print("Quit event detected.")
+            running = False
+
+pygame.quit()
+print("Game has ended.")
